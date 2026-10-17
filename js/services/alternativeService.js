@@ -32,6 +32,7 @@ export function createAlternative(name, forExerciseId) {
     muscleFeedback: "",
     muscleGroup: forExercise?.muscleGroup ?? "sonstige",
     alternatives: forExercise ? [forExercise.id] : [],
+    custom: true,
   };
   exercises.push(created);
 

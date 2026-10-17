@@ -1,5 +1,5 @@
 import { loadExercises, loadSessions } from "../storage.js";
-import { showExerciseDetail, escapeHtml } from "./exercises.js";
+import { showExerciseDetail, escapeHtml, customBadge } from "./exercises.js";
 
 export function renderProgress(container, setTitle) {
   setTitle("Verlauf", null);
@@ -40,7 +40,7 @@ export function renderProgress(container, setTitle) {
       ({ exercise, date }) => `
     <div class="list-row" data-exercise-id="${exercise.id}" style="cursor:pointer;">
       <div class="list-row-main" style="font-weight:600;">
-        ${escapeHtml(exercise.name)}
+        ${escapeHtml(exercise.name)}${customBadge(exercise)}
         <div class="list-row-sub">Zuletzt trainiert: ${formatDate(date)}</div>
       </div>
       <span class="chevron">›</span>

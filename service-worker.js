@@ -1,4 +1,4 @@
-const CACHE_NAME = "diary-cache-v5";
+const CACHE_NAME = "diary-cache-v6";
 const CORE_ASSETS = [
   "./",
   "index.html",
@@ -17,6 +17,7 @@ const CORE_ASSETS = [
   "js/services/alternativeService.js",
   "js/services/presetInstantiationService.js",
   "js/services/exerciseProgressService.js",
+  "js/services/exerciseService.js",
   "js/ui/modal.js",
   "js/ui/charts.js",
   "js/views/plans.js",

@@ -12,7 +12,7 @@ import {
 } from "../services/planService.js";
 import { openModal, closeModal, confirmDialog } from "../ui/modal.js";
 import { openExercisePicker } from "./exercisePicker.js";
-import { escapeHtml } from "./exercises.js";
+import { escapeHtml, customBadge } from "./exercises.js";
 import { refresh } from "../router.js";
 import { startSession } from "../services/sessionService.js";
 import { renderActiveSession } from "./activeSession.js";
@@ -241,7 +241,7 @@ function renderDayDetail(container, setTitle, plan, day) {
               return `
             <div class="list-row">
               <div class="list-row-main" style="font-weight:600;">
-                ${escapeHtml(exercise?.name ?? "Unbekannte Übung")}
+                ${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}
                 <div class="list-row-sub">Sätze</div>
               </div>
               <div class="stepper" data-pe-id="${pe.id}">

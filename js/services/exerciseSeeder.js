@@ -26,6 +26,13 @@ export function seedExercisesIfNeeded() {
     }
   }
 
+  // Alles, was nicht zur Standard-Datenbank gehört, hat der Nutzer selbst angelegt (z. B.
+  // frühere Alternativübungen vor Einführung des Flags) - als "Eigene" kennzeichnen.
+  const seedNames = new Set(EXERCISE_SEED.map((d) => d.name));
+  for (const exercise of existing) {
+    if (!seedNames.has(exercise.name)) exercise.custom = true;
+  }
+
   saveExercises(existing);
   return existing;
 }

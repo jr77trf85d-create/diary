@@ -2,7 +2,7 @@ import { loadExercises } from "../storage.js";
 import { filterExercises } from "../services/exerciseFilter.js";
 import { getAlternatives, addAlternative, createAlternative } from "../services/alternativeService.js";
 import { openModal, closeModal } from "../ui/modal.js";
-import { escapeHtml } from "./exercises.js";
+import { escapeHtml, customBadge } from "./exercises.js";
 
 export function openAlternativePicker(exerciseId, onSelect) {
   const state = { searchText: "" };
@@ -31,7 +31,7 @@ export function openAlternativePicker(exerciseId, onSelect) {
           <div class="detail-section">
             <h3>Bestehende Alternativen</h3>
             ${existingAlternatives
-              .map((e) => `<button class="list-row-main list-row" data-select="${e.id}" style="width:100%; display:block; cursor:pointer;">${escapeHtml(e.name)}</button>`)
+              .map((e) => `<button class="list-row-main list-row" data-select="${e.id}" style="width:100%; display:block; cursor:pointer;">${escapeHtml(e.name)}${customBadge(e)}</button>`)
               .join("")}
           </div>
         `
@@ -49,7 +49,7 @@ export function openAlternativePicker(exerciseId, onSelect) {
           <input type="text" class="search-input" placeholder="Übung suchen" id="alt-search" value="${escapeHtml(state.searchText)}" />
           <div style="overflow-y:auto;">
             ${candidates
-              .map((e) => `<button class="list-row-main list-row" data-select-other="${e.id}" style="width:100%; display:block; cursor:pointer;">${escapeHtml(e.name)}</button>`)
+              .map((e) => `<button class="list-row-main list-row" data-select-other="${e.id}" style="width:100%; display:block; cursor:pointer;">${escapeHtml(e.name)}${customBadge(e)}</button>`)
               .join("")}
           </div>
         </div>

@@ -2,7 +2,7 @@ import { loadExercises } from "../storage.js";
 import { filterExercises } from "../services/exerciseFilter.js";
 import { MUSCLE_GROUPS, muscleGroupLabel } from "../data/muscleGroups.js";
 import { openModal, closeModal } from "../ui/modal.js";
-import { escapeHtml } from "./exercises.js";
+import { escapeHtml, customBadge } from "./exercises.js";
 
 export function openExercisePicker(onSelect) {
   const state = { searchText: "", selectedMuscleGroup: null };
@@ -33,7 +33,7 @@ export function openExercisePicker(onSelect) {
                   .map(
                     (e) => `
                 <button class="list-row-main list-row" data-id="${e.id}" style="width:100%; display:block; cursor:pointer;">
-                  ${escapeHtml(e.name)}
+                  ${escapeHtml(e.name)}${customBadge(e)}
                   <div class="list-row-sub">${escapeHtml(muscleGroupLabel(e.muscleGroup))}</div>
                 </button>
               `

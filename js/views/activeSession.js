@@ -8,7 +8,7 @@ import {
   replaceExercise,
   getLastPerformance,
 } from "../services/sessionService.js";
-import { showExerciseDetail, escapeHtml } from "./exercises.js";
+import { showExerciseDetail, escapeHtml, customBadge } from "./exercises.js";
 import { openAlternativePicker } from "./alternativePicker.js";
 
 export function renderActiveSession(container, setTitle, sessionId, onDone) {
@@ -46,7 +46,7 @@ function performedExerciseCard(pe, exerciseById) {
   return `
     <div class="card" data-pe-card="${pe.id}">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-        <div style="flex:1; font-weight:700; font-size:16px;">${escapeHtml(exercise?.name ?? "Unbekannte Übung")}</div>
+        <div style="flex:1; font-weight:700; font-size:16px;">${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}</div>
         <button class="icon-btn" data-info="${pe.id}" aria-label="Anleitung">ℹ️</button>
         <button class="icon-btn" data-alt="${pe.id}" aria-label="Alternative wählen">🔁</button>
       </div>
