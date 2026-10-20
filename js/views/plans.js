@@ -9,12 +9,20 @@ import {
   addExerciseToDay,
   removeExerciseFromDay,
   updateTargetSets,
+  updateTargetReps,
+  updateNote,
 } from "../services/planService.js";
 import { openModal, closeModal, confirmDialog } from "../ui/modal.js";
 import { openExercisePicker } from "./exercisePicker.js";
 import { escapeHtml, customBadge } from "./exercises.js";
 import { refresh } from "../router.js";
-import { startSession } from "../services/sessionService.js";
+import {
+  startSession,
+  getUnfinishedSessions,
+  getUnfinishedSessionForDay,
+  discardSession,
+} from "../services/sessionService.js";
+import { recommendedReps } from "../data/repRanges.js";
 import { renderActiveSession } from "./activeSession.js";
 import { TRAINING_PLAN_PRESETS } from "../data/presets.js";
 import { instantiatePreset, PresetInstantiationError } from "../services/presetInstantiationService.js";
@@ -62,8 +70,25 @@ export function renderPlans(container, setTitle) {
 function renderPlanList(container, setTitle) {
   setTitle("Pläne", null);
   const plans = getPlans();
+  const unfinished = getUnfinishedSessions();
 
   container.innerHTML = `
+    ${unfinished
+      .map((session) => {
+        const plan = plans.find((p) => p.id === session.planId);
+        const day = plan?.days.find((d) => d.id === session.dayId);
+        const label = plan && day ? `${plan.name}: ${day.name}` : "Training";
+        return `
+      <div class="card resume-card" data-session-id="${session.id}">
+        <div style="font-weight:700; margin-bottom:2px;">Training läuft</div>
+        <div class="list-row-sub" style="margin-bottom:10px;">${escapeHtml(label)} · gestartet ${formatStarted(session.date)}</div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn-secondary" data-discard-session="${session.id}">Verwerfen</button>
+          <button class="btn-primary" data-resume-session="${session.id}">Fortsetzen</button>
+        </div>
+      </div>`;
+      })
+      .join("")}
     <div style="display:flex; gap:8px; margin-bottom:16px;">
       <button class="btn-primary" id="create-plan-btn" style="flex:1;">+ Neuer Trainingsplan</button>
       <button class="btn-secondary" id="open-presets-btn">Vorlagen</button>
@@ -86,6 +111,31 @@ function renderPlanList(container, setTitle) {
             .join("")
     }
   `;
+
+  container.querySelectorAll("[data-resume-session]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const session = unfinished.find((s) => s.id === btn.dataset.resumeSession);
+      if (!session) return;
+      nav.screen = "session";
+      nav.sessionId = session.id;
+      nav.planId = session.planId;
+      nav.dayId = session.dayId;
+      renderPlans(container, setTitle);
+    });
+  });
+
+  container.querySelectorAll("[data-discard-session]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const ok = await confirmDialog(
+        "Dieses unfertige Training wirklich verwerfen? Alle bisher eingetragenen Sätze gehen verloren.",
+        { confirmLabel: "Verwerfen" }
+      );
+      if (ok) {
+        discardSession(btn.dataset.discardSession);
+        renderPlans(container, setTitle);
+      }
+    });
+  });
 
   container.querySelector("#create-plan-btn").addEventListener("click", showCreatePlanModal);
   container.querySelector("#open-presets-btn").addEventListener("click", () => {
@@ -227,7 +277,9 @@ function renderDayDetail(container, setTitle, plan, day) {
     <button class="btn-primary" id="add-exercise-btn" style="width:100%; margin-bottom:16px;">+ Übung hinzufügen</button>
     ${
       day.planExercises.length > 0
-        ? `<button class="btn-primary" id="start-session-btn" style="width:100%; margin-bottom:16px;">▶ Training starten</button>`
+        ? `<button class="btn-primary" id="start-session-btn" style="width:100%; margin-bottom:16px;">${
+            getUnfinishedSessionForDay(plan.id, day.id) ? "▶ Training fortsetzen" : "▶ Training starten"
+          }</button>`
         : ""
     }
     ${
@@ -238,18 +290,37 @@ function renderDayDetail(container, setTitle, plan, day) {
             .sort((a, b) => a.order - b.order)
             .map((pe) => {
               const exercise = exerciseById.get(pe.exerciseId);
+              const recommendation = exercise ? recommendedReps(exercise.name) : null;
               return `
-            <div class="list-row">
-              <div class="list-row-main" style="font-weight:600;">
-                ${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}
-                <div class="list-row-sub">Sätze</div>
+            <div class="card">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <div style="flex:1; font-weight:700;">${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}</div>
+                <button class="icon-btn danger" data-remove-pe="${pe.id}" aria-label="Übung entfernen">🗑</button>
               </div>
-              <div class="stepper" data-pe-id="${pe.id}">
-                <button type="button" data-sets-minus>−</button>
-                <span>${pe.targetSets}</span>
-                <button type="button" data-sets-plus>+</button>
+              <div class="plan-controls">
+                <div class="plan-control">
+                  <span class="plan-control-label">Sätze</span>
+                  <div class="stepper" data-pe-id="${pe.id}">
+                    <button type="button" data-sets-minus>−</button>
+                    <span>${pe.targetSets}</span>
+                    <button type="button" data-sets-plus>+</button>
+                  </div>
+                </div>
+                <div class="plan-control" data-reps-for="${pe.id}">
+                  <span class="plan-control-label">Wiederholungen</span>
+                  <div class="rep-inputs">
+                    <input type="number" inputmode="numeric" min="1" class="rep-input" data-rep="min" placeholder="von" aria-label="Wiederholungen von" value="${pe.targetRepsMin ?? ""}" />
+                    <span>–</span>
+                    <input type="number" inputmode="numeric" min="1" class="rep-input" data-rep="max" placeholder="bis" aria-label="Wiederholungen bis" value="${pe.targetRepsMax ?? ""}" />
+                  </div>
+                </div>
               </div>
-              <button class="icon-btn danger" data-remove-pe="${pe.id}" aria-label="Übung entfernen">🗑</button>
+              ${
+                recommendation
+                  ? `<div class="list-row-sub" style="margin:6px 0 8px;">Empfehlung: ${escapeHtml(recommendation.text)}</div>`
+                  : ""
+              }
+              <input type="text" class="note-input" data-note-for="${pe.id}" placeholder="Notiz (z. B. Sitzeinstellung, Reminder)" aria-label="Notiz" value="${escapeAttrValue(pe.note ?? "")}" />
             </div>
           `;
             })
@@ -274,7 +345,7 @@ function renderDayDetail(container, setTitle, plan, day) {
   });
 
   container.querySelector("#start-session-btn")?.addEventListener("click", () => {
-    const session = startSession(plan.id, day.id);
+    const session = getUnfinishedSessionForDay(plan.id, day.id) ?? startSession(plan.id, day.id);
     if (!session) return;
     nav.screen = "session";
     nav.sessionId = session.id;
@@ -292,6 +363,20 @@ function renderDayDetail(container, setTitle, plan, day) {
       updateTargetSets(plan.id, day.id, peId, current.targetSets + 1);
       renderPlans(container, setTitle);
     });
+  });
+
+  // Wiederholungsziel und Notiz werden bei jeder Eingabe gespeichert (ohne Neuaufbau der Ansicht,
+  // damit Tastatur und Cursor erhalten bleiben).
+  container.querySelectorAll("[data-reps-for]").forEach((group) => {
+    const peId = group.dataset.repsFor;
+    const [minInput, maxInput] = group.querySelectorAll(".rep-input");
+    const save = () => updateTargetReps(plan.id, day.id, peId, minInput.value, maxInput.value);
+    minInput.addEventListener("input", save);
+    maxInput.addEventListener("input", save);
+  });
+
+  container.querySelectorAll("[data-note-for]").forEach((input) => {
+    input.addEventListener("input", () => updateNote(plan.id, day.id, input.dataset.noteFor, input.value));
   });
 
   container.querySelectorAll("[data-remove-pe]").forEach((btn) => {
@@ -416,4 +501,13 @@ function ratingBarHtml(label, value) {
       <span style="color:var(--color-accent); letter-spacing:2px;">${dots}</span>
     </div>
   `;
+}
+
+function escapeAttrValue(str) {
+  return escapeHtml(str).replace(/"/g, "&quot;");
+}
+
+function formatStarted(isoString) {
+  const d = new Date(isoString);
+  return d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }

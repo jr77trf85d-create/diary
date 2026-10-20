@@ -47,9 +47,21 @@ Lesezeichen, das ohne Server nicht öffnet. GitHub Pages stellt die App kostenlo
 
 ## Updates einspielen
 
-Geänderte Dateien im Repository über **Add file, Upload files** erneut hochladen
-(gleiche Dateinamen werden ersetzt). Beim nächsten Öffnen mit Internetverbindung holt
-sich die App die neue Version. Eventuell einmal komplett schließen und neu starten.
+Updates ändern nur die App, nie deine Daten (diese liegen im Speicher des iPhones).
+
+1. Geänderte Dateien im Repository über **Add file, Upload files** hochladen (gleiche
+   Dateinamen werden ersetzt, Ordner wie `js/views` mit hineinziehen).
+2. **Commit changes** klicken und 1 bis 2 Minuten warten.
+3. App auf dem iPhone mit Internetverbindung öffnen. Sie lädt die neue Version im
+   Hintergrund und zeigt unten **"Neue Version verfügbar"**. Auf **Neu laden** tippen.
+4. Zum manuellen Prüfen: Tab **Mehr, Nach Updates suchen**. Dort steht auch die
+   installierte Version.
+
+## Sicherung
+
+Im Tab **Mehr** gibt es **Sicherung exportieren** (speichert eine Datei, z. B. in
+"Dateien") und **Sicherung einspielen**. Eine Sicherung vor größeren Änderungen oder
+vor dem Löschen der App schützt vor Datenverlust.
 
 ## Gut zu wissen
 

@@ -1,4 +1,5 @@
 import { loadExercises, loadPlans, savePlans, makeId } from "../storage.js";
+import { recommendedReps } from "../data/repRanges.js";
 
 export class PresetInstantiationError extends Error {
   constructor(exerciseName) {
@@ -16,7 +17,16 @@ export function instantiatePreset(preset, planName) {
     const planExercises = presetDay.exercises.map((presetExercise, i) => {
       const exercise = exercisesByName.get(presetExercise.exerciseName);
       if (!exercise) throw new PresetInstantiationError(presetExercise.exerciseName);
-      return { id: makeId(), exerciseId: exercise.id, order: i, targetSets: presetExercise.numberOfSets };
+      const recommendation = recommendedReps(exercise.name);
+      return {
+        id: makeId(),
+        exerciseId: exercise.id,
+        order: i,
+        targetSets: presetExercise.numberOfSets,
+        targetRepsMin: recommendation?.min ?? null,
+        targetRepsMax: recommendation?.max ?? null,
+        note: "",
+      };
     });
     return { id: makeId(), name: presetDay.name, order: dayIndex, planExercises };
   });

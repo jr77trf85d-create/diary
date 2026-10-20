@@ -2,7 +2,7 @@ import { loadExercises } from "../storage.js";
 import { filterExercises } from "../services/exerciseFilter.js";
 import { MUSCLE_GROUPS, muscleGroupLabel } from "../data/muscleGroups.js";
 import { openModal, closeModal } from "../ui/modal.js";
-import { escapeHtml, customBadge } from "./exercises.js";
+import { escapeHtml, customBadge, openExerciseForm } from "./exercises.js";
 
 export function openExercisePicker(onSelect) {
   const state = { searchText: "", selectedMuscleGroup: null };
@@ -18,6 +18,7 @@ export function openExercisePicker(onSelect) {
       const filtered = filterExercises(exercises, state.searchText, state.selectedMuscleGroup);
       sheet.innerHTML = `
         <h2>Übung auswählen</h2>
+        <button class="btn-secondary" id="picker-new-exercise" style="width:100%; margin-bottom:12px;">+ Neue Übung anlegen</button>
         <input type="text" class="search-input" placeholder="Übung suchen" id="picker-search" value="${escapeHtml(state.searchText)}" />
         <div class="chip-row" id="picker-chip-row">
           <button class="chip ${state.selectedMuscleGroup === null ? "active" : ""}" data-group="">Alle</button>
@@ -42,6 +43,14 @@ export function openExercisePicker(onSelect) {
           }
         </div>
       `;
+
+      // Neue Übung anlegen und direkt übernehmen; bei Abbruch zurück zur Auswahl.
+      sheet.querySelector("#picker-new-exercise").addEventListener("click", () => {
+        openExerciseForm(null, {
+          onSaved: (created) => onSelect(created.id),
+          onCancel: () => openExercisePicker(onSelect),
+        });
+      });
 
       sheet.querySelector("#picker-search").addEventListener("input", (e) => {
         state.searchText = e.target.value;

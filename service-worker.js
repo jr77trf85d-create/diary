@@ -1,4 +1,4 @@
-const CACHE_NAME = "diary-cache-v6";
+const CACHE_NAME = "diary-cache-v7";
 const CORE_ASSETS = [
   "./",
   "index.html",
@@ -10,6 +10,7 @@ const CORE_ASSETS = [
   "js/data/muscleGroups.js",
   "js/data/exerciseSeed.js",
   "js/data/presets.js",
+  "js/data/repRanges.js",
   "js/services/exerciseSeeder.js",
   "js/services/exerciseFilter.js",
   "js/services/planService.js",
@@ -18,6 +19,7 @@ const CORE_ASSETS = [
   "js/services/presetInstantiationService.js",
   "js/services/exerciseProgressService.js",
   "js/services/exerciseService.js",
+  "js/services/backupService.js",
   "js/ui/modal.js",
   "js/ui/charts.js",
   "js/views/plans.js",
@@ -26,15 +28,18 @@ const CORE_ASSETS = [
   "js/views/alternativePicker.js",
   "js/views/activeSession.js",
   "js/views/progress.js",
+  "js/views/more.js",
   "icons/icon-192.png",
   "icons/icon-512.png",
   "icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
-  );
+  // cache: "reload" holt die Dateien wirklich neu vom Server statt aus dem HTTP-Cache des
+  // Browsers (GitHub Pages cached ca. 10 Minuten) - sonst landet beim Update eine veraltete
+  // Version im Offline-Speicher.
+  const requests = CORE_ASSETS.map((url) => new Request(url, { cache: "reload" }));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(requests)));
   self.skipWaiting();
 });
 
@@ -54,7 +59,7 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request)
+      const networkFetch = fetch(event.request, { cache: "no-cache" })
         .then((response) => {
           if (response.ok) {
             const copy = response.clone();

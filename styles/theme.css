@@ -445,3 +445,167 @@ button {
   border-radius: 8px;
   margin-left: 6px;
 }
+
+/* Training: einklappbare Übungskarten */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  text-align: left;
+  padding: 0;
+  font-size: 16px;
+}
+
+.card-chevron {
+  color: var(--color-text-secondary);
+  font-size: 20px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.card-chevron.open {
+  transform: rotate(90deg);
+}
+
+.card-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.card-name {
+  font-weight: 700;
+}
+
+.card-body {
+  margin-top: 12px;
+}
+
+.pe-note {
+  margin: 8px 0 0 30px;
+  font-size: 13px;
+  color: var(--color-accent-secondary);
+}
+
+.adhoc-badge {
+  display: inline-block;
+  vertical-align: middle;
+  border: 1px solid var(--color-accent-secondary);
+  color: var(--color-accent-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+}
+
+.set-copy,
+.set-copy-spacer {
+  width: 28px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.set-copy {
+  border: none;
+  border-radius: 8px;
+  background: var(--color-surface-elevated);
+  color: var(--color-accent);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Plan: Wiederholungsziel und Notiz */
+.plan-controls {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.plan-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plan-control-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.rep-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rep-input {
+  width: 64px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: 16px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.note-input {
+  width: 100%;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  padding: 8px 10px;
+}
+
+.note-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.resume-card {
+  border: 1px solid var(--color-accent);
+}
+
+/* Mehr-Tab */
+.section-title {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.more-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.more-status {
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.update-banner {
+  position: fixed;
+  left: var(--space-md);
+  right: var(--space-md);
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 14px;
+}

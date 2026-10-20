@@ -12,6 +12,7 @@ import {
 } from "../services/exerciseService.js";
 import { getProgressHistory } from "../services/exerciseProgressService.js";
 import { chartCardHtml } from "../ui/charts.js";
+import { recommendedReps } from "../data/repRanges.js";
 
 const state = {
   searchText: "",
@@ -119,6 +120,14 @@ export function showExerciseDetail(exercise) {
           : ""
       }
       ${
+        recommendedReps(exercise.name)
+          ? `<div class="detail-section">
+        <h3>Empfehlung</h3>
+        <p style="color:var(--color-accent);">${escapeHtml(recommendedReps(exercise.name).text)}</p>
+      </div>`
+          : ""
+      }
+      ${
         exercise.muscleFeedback
           ? `<div class="detail-section">
         <h3>Muskelgefühl</h3>
@@ -160,7 +169,7 @@ export function showExerciseDetail(exercise) {
 }
 
 // Formular zum Anlegen (exercise = null) oder Bearbeiten einer eigenen Übung.
-function openExerciseForm(exercise) {
+export function openExerciseForm(exercise, { onSaved = null, onCancel = null } = {}) {
   const editing = exercise !== null;
   openModal((sheet) => {
     sheet.innerHTML = `
@@ -188,7 +197,10 @@ function openExerciseForm(exercise) {
       </div>
     `;
 
-    sheet.querySelector("#custom-cancel").addEventListener("click", closeModal);
+    sheet.querySelector("#custom-cancel").addEventListener("click", () => {
+      closeModal();
+      onCancel?.();
+    });
     sheet.querySelector("#custom-save").addEventListener("click", () => {
       const data = {
         name: sheet.querySelector("#custom-name").value,
@@ -196,10 +208,10 @@ function openExerciseForm(exercise) {
         instructions: sheet.querySelector("#custom-description").value,
       };
       try {
-        if (editing) updateCustomExercise(exercise.id, data);
-        else addCustomExercise(data);
+        const saved = editing ? updateCustomExercise(exercise.id, data) : addCustomExercise(data);
         closeModal();
-        refresh();
+        if (onSaved) onSaved(saved);
+        else refresh();
       } catch (err) {
         if (!(err instanceof ExerciseValidationError)) throw err;
         const errorEl = sheet.querySelector("#custom-error");
