@@ -2,50 +2,61 @@ import { loadExercises } from "../storage.js";
 import {
   getSession,
   completeSession,
+  discardSession,
   addSet,
   removeSet,
   updateSet,
   replaceExercise,
-  getLastPerformance,
   copyFirstWeightToFollowing,
   addAdHocExercise,
   removeAdHocExercise,
 } from "../services/sessionService.js";
-import { showExerciseDetail, escapeHtml, customBadge } from "./exercises.js";
+import { findReference, liveProgress, isFilledSet, sessionHasData } from "../services/comparisonService.js";
+import { showExerciseDetail, showExerciseStats, escapeHtml, customBadge, formatSetShort } from "./exercises.js";
 import { openAlternativePicker } from "./alternativePicker.js";
 import { openExercisePicker } from "./exercisePicker.js";
 import { confirmDialog } from "../ui/modal.js";
+import { progressBarHtml, updateProgressBar } from "../ui/progressBar.js";
 import { formatRepTarget } from "../data/repRanges.js";
 
 // Welche Übungskarten gerade aufgeklappt sind. Standardmäßig ist alles eingeklappt; der Zustand
 // überlebt Neuzeichnen (z. B. nach "+ Satz"), nicht aber das Verlassen des Trainings.
 const expanded = new Set();
 
-export function renderActiveSession(container, setTitle, sessionId, onDone) {
+// callbacks: { onBack: () => void, onFinished: (sessionId) => void }
+export function renderActiveSession(container, setTitle, sessionId, { onBack, onFinished }) {
   const session = getSession(sessionId);
   if (!session) {
-    onDone();
+    onBack();
     return;
   }
 
-  setTitle("Training", onDone);
+  setTitle("Training", onBack);
 
   const scrollTop = container.scrollTop;
   const exerciseById = new Map(loadExercises().map((e) => [e.id, e]));
-  const rerender = () => renderActiveSession(container, setTitle, sessionId, onDone);
+  const rerender = () => renderActiveSession(container, setTitle, sessionId, { onBack, onFinished });
+
+  // Vergleichswert je Übung: letztes Training desselben Trainingstags, sonst letztes Training der Übung.
+  const references = new Map(
+    session.performedExercises.map((pe) => [
+      pe.id,
+      findReference(pe.exerciseId, { planId: session.planId, dayId: session.dayId, excludeSessionId: session.id }),
+    ])
+  );
 
   container.innerHTML = `
     ${session.performedExercises
       .slice()
       .sort((a, b) => a.order - b.order)
-      .map((pe) => performedExerciseCard(pe, exerciseById))
+      .map((pe) => performedExerciseCard(pe, exerciseById, references.get(pe.id)))
       .join("")}
     <button class="btn-secondary" id="add-adhoc-btn" style="width:100%; margin-top:4px;">+ Spontane Übung hinzufügen</button>
     <button class="btn-primary" id="finish-session-btn" style="width:100%; margin-top:12px;">Training abschließen</button>
   `;
   container.scrollTop = scrollTop;
 
-  wireCardEvents(container, session, exerciseById, rerender);
+  wireCardEvents(container, session, exerciseById, references, rerender);
 
   container.querySelector("#add-adhoc-btn").addEventListener("click", () => {
     openExercisePicker((exerciseId) => {
@@ -55,10 +66,24 @@ export function renderActiveSession(container, setTitle, sessionId, onDone) {
     });
   });
 
-  container.querySelector("#finish-session-btn").addEventListener("click", () => {
+  container.querySelector("#finish-session-btn").addEventListener("click", async () => {
+    const current = getSession(sessionId);
+    if (!current) return;
+    if (!sessionHasData(current)) {
+      // Ein Training ohne einen einzigen Satz würde nur den Verlauf verstopfen.
+      const ok = await confirmDialog("Es wurde noch nichts eingetragen. Dieses Training verwerfen?", {
+        confirmLabel: "Verwerfen",
+      });
+      if (ok) {
+        expanded.clear();
+        discardSession(sessionId);
+        onBack();
+      }
+      return;
+    }
     expanded.clear();
     completeSession(sessionId);
-    onDone();
+    onFinished(sessionId);
   });
 }
 
@@ -69,36 +94,36 @@ function summaryText(pe, filledCount) {
   return parts.join(" · ");
 }
 
-function isFilled(set) {
-  return set.weight != null || set.reps != null;
+function lastTimeText(reference) {
+  if (!reference) return "";
+  const date = new Date(reference.session.completedAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+  const sets = reference.performed.sets.filter(isFilledSet).map(formatSetShort).join(", ");
+  return `Letztes Mal (${date}${reference.sameDay ? "" : ", anderer Trainingstag"}): ${sets}`;
 }
 
-function performedExerciseCard(pe, exerciseById) {
+function performedExerciseCard(pe, exerciseById, reference) {
   const exercise = exerciseById.get(pe.exerciseId);
-  const last = getLastPerformance(pe.exerciseId, undefined);
   const isOpen = expanded.has(pe.id);
   const target = formatRepTarget(pe.targetRepsMin, pe.targetRepsMax);
 
   return `
     <div class="card" data-pe-card="${pe.id}">
-      <button class="card-header" data-toggle="${pe.id}" aria-expanded="${isOpen}">
-        <span class="card-chevron ${isOpen ? "open" : ""}">›</span>
-        <span class="card-title">
-          <span class="card-name">${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}${
-            pe.adHoc ? ' <span class="adhoc-badge">Spontan</span>' : ""
-          }</span>
-          <span class="list-row-sub" data-summary>${summaryText(pe, pe.sets.filter(isFilled).length)}</span>
-        </span>
-      </button>
+      <div class="card-top">
+        <button class="card-header" data-toggle="${pe.id}" aria-expanded="${isOpen}">
+          <span class="card-chevron ${isOpen ? "open" : ""}" aria-hidden="true"></span>
+          <span class="card-title">
+            <span class="card-name">${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}${
+              pe.adHoc ? ' <span class="adhoc-badge">Spontan</span>' : ""
+            }</span>
+            <span class="list-row-sub" data-summary>${summaryText(pe, pe.sets.filter(isFilledSet).length)}</span>
+          </span>
+        </button>
+        <button class="icon-btn stats-btn" data-stats="${pe.id}" aria-label="Statistik anzeigen">📈</button>
+      </div>
       ${pe.note ? `<div class="pe-note">📝 ${escapeHtml(pe.note)}</div>` : ""}
+      ${progressBarHtml(liveProgress(pe.sets, reference))}
       <div class="card-body" data-body="${pe.id}" ${isOpen ? "" : "hidden"}>
-        ${
-          last
-            ? `<div class="list-row-sub" style="margin-bottom:8px;">Letztes Mal: ${
-                last.sets.map((s) => formatSet(s)).filter(Boolean).join(", ") || "–"
-              }</div>`
-            : ""
-        }
+        ${reference ? `<div class="list-row-sub" style="margin-bottom:8px;">${escapeHtml(lastTimeText(reference))}</div>` : ""}
         <div data-sets-container="${pe.id}">
           ${pe.sets.map((s, i) => setRowHtml(pe, s, i, target)).join("")}
         </div>
@@ -134,14 +159,7 @@ function setRowHtml(pe, set, index, target) {
   `;
 }
 
-function formatSet(set) {
-  if (set.weight == null && set.reps == null) return null;
-  const weight = set.weight != null ? `${set.weight}kg` : "–";
-  const reps = set.reps != null ? `${set.reps}` : "–";
-  return `${weight} × ${reps}`;
-}
-
-function wireCardEvents(container, session, exerciseById, rerender) {
+function wireCardEvents(container, session, exerciseById, references, rerender) {
   const findPe = (id) => session.performedExercises.find((p) => p.id === id);
 
   // Ein-/Ausklappen ohne Neuzeichnen
@@ -155,6 +173,13 @@ function wireCardEvents(container, session, exerciseById, rerender) {
       header.querySelector(".card-chevron").classList.toggle("open", open);
       if (open) expanded.add(id);
       else expanded.delete(id);
+    });
+  });
+
+  container.querySelectorAll("[data-stats]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const exercise = exerciseById.get(findPe(btn.dataset.stats)?.exerciseId);
+      if (exercise) showExerciseStats(exercise);
     });
   });
 
@@ -202,7 +227,7 @@ function wireCardEvents(container, session, exerciseById, rerender) {
     btn.addEventListener("click", async () => {
       const pe = findPe(btn.dataset.removeAdhoc);
       if (!pe) return;
-      if (pe.sets.some(isFilled)) {
+      if (pe.sets.some(isFilledSet)) {
         const ok = await confirmDialog("Diese spontane Übung samt eingetragener Sätze aus dem Training entfernen?", {
           confirmLabel: "Entfernen",
         });
@@ -223,10 +248,12 @@ function wireCardEvents(container, session, exerciseById, rerender) {
       const value = input.value === "" ? null : Number(input.value);
       updateSet(session.id, row.dataset.peId, row.dataset.setId, { [field]: value });
 
-      // Zusammenfassung der eingeklappten Karte live aktualisieren
+      // Zusammenfassung und Balken der Karte live aktualisieren (ohne Neuaufbau)
       const card = row.closest("[data-pe-card]");
       const pe = getSession(session.id)?.performedExercises.find((p) => p.id === row.dataset.peId);
-      if (card && pe) card.querySelector("[data-summary]").textContent = summaryText(pe, pe.sets.filter(isFilled).length);
+      if (!card || !pe) return;
+      card.querySelector("[data-summary]").textContent = summaryText(pe, pe.sets.filter(isFilledSet).length);
+      updateProgressBar(card.querySelector("[data-prog]"), liveProgress(pe.sets, references.get(pe.id)));
     });
   });
 }

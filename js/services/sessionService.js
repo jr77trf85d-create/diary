@@ -68,6 +68,22 @@ export function discardSession(sessionId) {
   saveSessions(loadSessions().filter((s) => s.id !== sessionId));
 }
 
+// Löscht ein einzelnes Training (auch ein abgeschlossenes) samt seines Beitrags zu Statistik
+// und Vergleichswerten.
+export const deleteSession = discardSession;
+
+export function countSessions() {
+  return loadSessions().length;
+}
+
+// Setzt alle Statistiken zurück: löscht sämtliche Trainings (abgeschlossene und unfertige).
+// Pläne, Übungen (auch eigene) und Notizen bleiben unberührt. Liefert die Anzahl gelöschter Trainings.
+export function deleteAllSessions() {
+  const count = loadSessions().length;
+  saveSessions([]);
+  return count;
+}
+
 export function addSet(sessionId, performedExerciseId) {
   withPerformedExercise(sessionId, performedExerciseId, (pe) => {
     pe.sets.push({ id: makeId(), weight: null, reps: null });

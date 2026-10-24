@@ -24,6 +24,7 @@ import {
 } from "../services/sessionService.js";
 import { recommendedReps } from "../data/repRanges.js";
 import { renderActiveSession } from "./activeSession.js";
+import { renderSessionSummary } from "./sessionReport.js";
 import { TRAINING_PLAN_PRESETS } from "../data/presets.js";
 import { instantiatePreset, PresetInstantiationError } from "../services/presetInstantiationService.js";
 
@@ -50,7 +51,20 @@ export function renderPlans(container, setTitle) {
     return renderPlanDetail(container, setTitle, plan);
   }
   if (nav.screen === "session") {
-    return renderActiveSession(container, setTitle, nav.sessionId, () => {
+    return renderActiveSession(container, setTitle, nav.sessionId, {
+      onBack: () => {
+        nav.screen = "day";
+        renderPlans(container, setTitle);
+      },
+      onFinished: (sessionId) => {
+        nav.screen = "summary";
+        nav.sessionId = sessionId;
+        renderPlans(container, setTitle);
+      },
+    });
+  }
+  if (nav.screen === "summary") {
+    return renderSessionSummary(container, setTitle, nav.sessionId, () => {
       nav.screen = "day";
       renderPlans(container, setTitle);
     });

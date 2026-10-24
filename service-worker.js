@@ -1,4 +1,4 @@
-const CACHE_NAME = "diary-cache-v7";
+const CACHE_NAME = "diary-cache-v8";
 const CORE_ASSETS = [
   "./",
   "index.html",
@@ -20,8 +20,12 @@ const CORE_ASSETS = [
   "js/services/exerciseProgressService.js",
   "js/services/exerciseService.js",
   "js/services/backupService.js",
+  "js/services/comparisonService.js",
+  "js/services/historyService.js",
   "js/ui/modal.js",
   "js/ui/charts.js",
+  "js/ui/progressBar.js",
+  "js/ui/format.js",
   "js/views/plans.js",
   "js/views/exercises.js",
   "js/views/exercisePicker.js",
@@ -29,6 +33,7 @@ const CORE_ASSETS = [
   "js/views/activeSession.js",
   "js/views/progress.js",
   "js/views/more.js",
+  "js/views/sessionReport.js",
   "icons/icon-192.png",
   "icons/icon-512.png",
   "icons/apple-touch-icon.png",

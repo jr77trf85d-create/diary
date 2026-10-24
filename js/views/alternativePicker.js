@@ -2,18 +2,17 @@ import { loadExercises } from "../storage.js";
 import { filterExercises } from "../services/exerciseFilter.js";
 import { getAlternatives, addAlternative, createAlternative } from "../services/alternativeService.js";
 import { openModal, closeModal } from "../ui/modal.js";
-import { escapeHtml, customBadge } from "./exercises.js";
+import { escapeHtml } from "./exercises.js";
+import { pickRowHtml } from "./exercisePicker.js";
 
 export function openAlternativePicker(exerciseId, onSelect) {
   const state = { searchText: "" };
 
   openModal((sheet) => {
-    sheet.style.maxHeight = "85vh";
-    sheet.style.display = "flex";
-    sheet.style.flexDirection = "column";
     render(sheet);
 
     function render(sheet) {
+      const previousScroll = sheet.querySelector(".sheet-scroll")?.scrollTop ?? 0;
       const exercises = loadExercises();
       const existingAlternatives = getAlternatives(exerciseId).sort((a, b) => a.name.localeCompare(b.name, "de"));
       const excludeIds = new Set([exerciseId, ...existingAlternatives.map((e) => e.id)]);
@@ -25,35 +24,33 @@ export function openAlternativePicker(exerciseId, onSelect) {
 
       sheet.innerHTML = `
         <h2>Alternative wählen</h2>
-        ${
-          existingAlternatives.length > 0
-            ? `
+        <div class="sheet-scroll">
+          ${
+            existingAlternatives.length > 0
+              ? `
+            <div class="detail-section">
+              <h3>Bestehende Alternativen</h3>
+              ${existingAlternatives.map((e) => pickRowHtml(e, "data-select")).join("")}
+            </div>
+          `
+              : ""
+          }
           <div class="detail-section">
-            <h3>Bestehende Alternativen</h3>
-            ${existingAlternatives
-              .map((e) => `<button class="list-row-main list-row" data-select="${e.id}" style="width:100%; display:block; cursor:pointer;">${escapeHtml(e.name)}${customBadge(e)}</button>`)
-              .join("")}
+            <h3>Neue Alternativübung anlegen</h3>
+            <div class="inline-form">
+              <input type="text" id="new-alt-name" class="text-input" placeholder="Name der Übung" />
+              <button class="btn-primary" id="create-alt-btn">Hinzufügen</button>
+            </div>
           </div>
-        `
-            : ""
-        }
-        <div class="detail-section">
-          <h3>Neue Alternativübung anlegen</h3>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="new-alt-name" placeholder="Name der Übung" style="flex:1; background:var(--color-surface-elevated); border:1px solid var(--color-divider); border-radius:var(--radius-sm); color:var(--color-text-primary); padding:10px 12px; font-size:16px;" />
-            <button class="btn-primary" id="create-alt-btn">Hinzufügen</button>
-          </div>
-        </div>
-        <div class="detail-section" style="flex:1; min-height:0; display:flex; flex-direction:column;">
-          <h3>Andere Übung als Alternative nutzen</h3>
-          <input type="text" class="search-input" placeholder="Übung suchen" id="alt-search" value="${escapeHtml(state.searchText)}" />
-          <div style="overflow-y:auto;">
-            ${candidates
-              .map((e) => `<button class="list-row-main list-row" data-select-other="${e.id}" style="width:100%; display:block; cursor:pointer;">${escapeHtml(e.name)}${customBadge(e)}</button>`)
-              .join("")}
+          <div class="detail-section">
+            <h3>Andere Übung als Alternative nutzen</h3>
+            <input type="text" class="search-input" placeholder="Übung suchen" id="alt-search" value="${escapeHtml(state.searchText)}" />
+            ${candidates.map((e) => pickRowHtml(e, "data-select-other")).join("")}
           </div>
         </div>
       `;
+
+      sheet.querySelector(".sheet-scroll").scrollTop = previousScroll;
 
       sheet.querySelectorAll("[data-select]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -88,5 +85,5 @@ export function openAlternativePicker(exerciseId, onSelect) {
         input.setSelectionRange(caret, caret);
       });
     }
-  });
+  }, { tall: true });
 }

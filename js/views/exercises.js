@@ -10,9 +10,10 @@ import {
   deleteCustomExercise,
   ExerciseValidationError,
 } from "../services/exerciseService.js";
-import { getProgressHistory } from "../services/exerciseProgressService.js";
+import { getProgressHistory, getRecentPerformances } from "../services/exerciseProgressService.js";
 import { chartCardHtml } from "../ui/charts.js";
 import { recommendedReps } from "../data/repRanges.js";
+import { formatNumber } from "../ui/format.js";
 
 const state = {
   searchText: "",
@@ -105,9 +106,6 @@ function emptyStateHtml() {
 
 export function showExerciseDetail(exercise) {
   openModal((sheet) => {
-    const history = getProgressHistory(exercise.id);
-    const dateLabels = history.map((p) => formatShortDate(p.date));
-
     sheet.innerHTML = `
       <h2>${escapeHtml(exercise.name)}</h2>
       <div class="muscle-tag">${escapeHtml(muscleGroupLabel(exercise.muscleGroup))}</div>${customBadge(exercise)}
@@ -135,14 +133,7 @@ export function showExerciseDetail(exercise) {
       </div>`
           : ""
       }
-      ${chartCardHtml("Gewicht (Topsatz)", history.map((p) => p.maxWeight), dateLabels, { formatValue: (v) => `${v}kg` })}
-      ${chartCardHtml("Wiederholungen (bei Topsatz)", history.map((p) => p.repsAtMaxWeight), dateLabels, { color: "var(--color-accent-secondary)" })}
-      ${chartCardHtml("Volumen", history.map((p) => p.totalVolume), dateLabels, { color: "var(--color-accent-secondary)", formatValue: (v) => `${Math.round(v)}kg` })}
-      ${
-        history.length === 0
-          ? `<div class="detail-section"><p style="color:var(--color-text-secondary);">Noch keine Trainingsdaten für diese Übung.</p></div>`
-          : ""
-      }
+      ${exerciseStatsHtml(exercise)}
       ${
         isCustomExercise(exercise)
           ? `<div class="modal-actions" style="justify-content:space-between; margin-top:8px;">
@@ -168,30 +159,78 @@ export function showExerciseDetail(exercise) {
   });
 }
 
+// Charts (Gewicht, Wiederholungen, Volumen) und die letzten Trainings einer Übung.
+function exerciseStatsHtml(exercise) {
+  const history = getProgressHistory(exercise.id);
+  if (history.length === 0) {
+    return `<div class="detail-section"><p style="color:var(--color-text-secondary);">Noch keine Trainingsdaten für diese Übung.</p></div>`;
+  }
+  const dateLabels = history.map((p) => formatShortDate(p.date));
+  const recent = getRecentPerformances(exercise.id, 5);
+  return `
+    ${chartCardHtml("Gewicht (Topsatz)", history.map((p) => p.maxWeight), dateLabels, { formatValue: (v) => `${formatNumber(v)} kg` })}
+    ${chartCardHtml("Wiederholungen (bei Topsatz)", history.map((p) => p.repsAtMaxWeight), dateLabels, { color: "var(--color-accent-secondary)" })}
+    ${chartCardHtml("Volumen", history.map((p) => p.totalVolume), dateLabels, { color: "var(--color-accent-secondary)", formatValue: (v) => `${Math.round(v).toLocaleString("de-DE")} kg` })}
+    <div class="detail-section">
+      <h3>Letzte Trainings</h3>
+      ${recent
+        .map(
+          (r) => `
+        <div class="recent-row">
+          <div class="recent-date">${new Date(r.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" })}</div>
+          <div class="recent-sets">${r.sets.map((set) => `<span class="set-pill">${formatSetShort(set)}</span>`).join("")}</div>
+        </div>`
+        )
+        .join("")}
+    </div>`;
+}
+
+export function formatSetShort(set) {
+  const weight = set.weight != null ? `${formatNumber(set.weight)} kg` : "–";
+  const reps = set.reps != null ? set.reps : "–";
+  return set.weight == null ? `${reps} Wdh.` : `${weight} × ${reps}`;
+}
+
+// Nur die Statistik einer Übung (zum Aufrufen während des Trainings).
+export function showExerciseStats(exercise) {
+  openModal((sheet) => {
+    sheet.innerHTML = `
+      <h2>${escapeHtml(exercise.name)}${customBadge(exercise)}</h2>
+      <div class="muscle-tag">${escapeHtml(muscleGroupLabel(exercise.muscleGroup))}</div>
+      ${exerciseStatsHtml(exercise)}
+      <div class="modal-actions" style="margin-top:8px;"><button class="btn-secondary" id="stats-close">Schließen</button></div>
+    `;
+    sheet.querySelector("#stats-close").addEventListener("click", closeModal);
+  });
+}
+
 // Formular zum Anlegen (exercise = null) oder Bearbeiten einer eigenen Übung.
 export function openExerciseForm(exercise, { onSaved = null, onCancel = null } = {}) {
   const editing = exercise !== null;
+  let selectedGroup = exercise?.muscleGroup ?? "sonstige";
   openModal((sheet) => {
     sheet.innerHTML = `
       <h2>${editing ? "Eigene Übung bearbeiten" : "Eigene Übung"}</h2>
+      <div class="sheet-scroll">
       <div class="form-field">
         <label>Name</label>
         <input type="text" id="custom-name" value="${escapeAttr(exercise?.name ?? "")}" placeholder="z. B. Kabel-Fliegende" />
       </div>
       <div class="form-field">
         <label>Muskelgruppe</label>
-        <select id="custom-group">
+        <div class="chip-wrap" id="custom-group" role="radiogroup" aria-label="Muskelgruppe">
           ${MUSCLE_GROUPS.map(
-            (g) => `<option value="${g.id}" ${g.id === (exercise?.muscleGroup ?? "sonstige") ? "selected" : ""}>${g.label}</option>`
+            (g) => `<button type="button" class="chip ${g.id === selectedGroup ? "active" : ""}" role="radio" aria-checked="${g.id === selectedGroup}" data-group="${g.id}">${g.label}</button>`
           ).join("")}
-        </select>
+        </div>
       </div>
       <div class="form-field">
         <label>Beschreibung (optional)</label>
         <textarea id="custom-description" rows="4" placeholder="Ausführung, Hinweise ...">${escapeHtml(exercise?.instructions ?? "")}</textarea>
       </div>
-      <p id="custom-error" style="color:var(--color-error); font-size:14px; margin-bottom:12px;" hidden></p>
-      <div class="modal-actions">
+      </div>
+      <p id="custom-error" style="color:var(--color-error); font-size:14px; margin:8px 0 0;" hidden></p>
+      <div class="modal-actions" style="margin-top:12px;">
         <button class="btn-secondary" id="custom-cancel">Abbrechen</button>
         <button class="btn-primary" id="custom-save">Speichern</button>
       </div>
@@ -204,7 +243,7 @@ export function openExerciseForm(exercise, { onSaved = null, onCancel = null } =
     sheet.querySelector("#custom-save").addEventListener("click", () => {
       const data = {
         name: sheet.querySelector("#custom-name").value,
-        muscleGroup: sheet.querySelector("#custom-group").value,
+        muscleGroup: selectedGroup,
         instructions: sheet.querySelector("#custom-description").value,
       };
       try {
@@ -220,8 +259,18 @@ export function openExerciseForm(exercise, { onSaved = null, onCancel = null } =
         errorEl.hidden = false;
       }
     });
+    sheet.querySelector("#custom-group").addEventListener("click", (event) => {
+      const chip = event.target.closest("button[data-group]");
+      if (!chip) return;
+      selectedGroup = chip.dataset.group;
+      sheet.querySelectorAll("#custom-group .chip").forEach((c) => {
+        const active = c.dataset.group === selectedGroup;
+        c.classList.toggle("active", active);
+        c.setAttribute("aria-checked", String(active));
+      });
+    });
     sheet.querySelector("#custom-name").focus();
-  });
+  }, { split: true });
 }
 
 export function customBadge(exercise) {

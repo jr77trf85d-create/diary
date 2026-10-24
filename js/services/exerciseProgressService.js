@@ -5,8 +5,10 @@ import { loadSessions } from "../storage.js";
 // nativen App: pro Session wird der Topsatz (höchstes Gewicht) sowie das Gesamtvolumen
 // der tatsächlich ausgefüllten Sätze ermittelt - leere Platzhalter-Sätze zählen nicht mit.
 export function getProgressHistory(exerciseId) {
+  // Nur abgeschlossene Trainings: ein laufendes Training würde den Verlauf mit einem halbfertigen
+  // Datenpunkt verfälschen.
   const sessions = loadSessions()
-    .slice()
+    .filter((s) => s.completedAt)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const points = [];
@@ -28,4 +30,18 @@ export function getProgressHistory(exerciseId) {
     });
   }
   return points;
+}
+
+// Die letzten abgeschlossenen Trainings einer Übung mit allen Sätzen, neueste zuerst.
+export function getRecentPerformances(exerciseId, limit = 5) {
+  return loadSessions()
+    .filter((s) => s.completedAt)
+    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+    .map((session) => ({ session, performed: session.performedExercises.find((pe) => pe.exerciseId === exerciseId) }))
+    .filter(({ performed }) => performed && performed.sets.some((set) => set.weight != null || set.reps != null))
+    .slice(0, limit)
+    .map(({ session, performed }) => ({
+      date: session.completedAt,
+      sets: performed.sets.filter((set) => set.weight != null || set.reps != null),
+    }));
 }
