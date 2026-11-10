@@ -1,5 +1,6 @@
 import { createBackupJson, backupFileName, parseBackup, applyBackup, BackupError } from "../services/backupService.js";
 import { seedExercisesIfNeeded } from "../services/exerciseSeeder.js";
+import { migratePlanNotesToExercises } from "../services/exerciseService.js";
 import { confirmDialog, openModal, closeModal } from "../ui/modal.js";
 import { countSessions, deleteAllSessions } from "../services/sessionService.js";
 import { escapeHtml } from "./exercises.js";
@@ -73,6 +74,7 @@ export function renderMore(container, setTitle) {
       if (!ok) return;
       applyBackup(data);
       seedExercisesIfNeeded();
+      migratePlanNotesToExercises(); // Sicherungen aus älteren Versionen enthalten Plan-Notizen
       showStatus(backupStatus, "Sicherung eingespielt.");
     } catch (err) {
       if (!(err instanceof BackupError)) throw err;

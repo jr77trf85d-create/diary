@@ -4,8 +4,11 @@ import { renderPlans } from "./views/plans.js";
 import { renderExercises } from "./views/exercises.js";
 import { renderProgress } from "./views/progress.js";
 import { renderMore } from "./views/more.js";
+import { migratePlanNotesToExercises } from "./services/exerciseService.js";
 
 seedExercisesIfNeeded();
+// Notizen je Plan-Übung (frühere Version) in die Notiz der Übung überführen.
+migratePlanNotesToExercises();
 
 // Bittet das Gerät, den Speicher dauerhaft zu behalten (schützt vor automatischem Aufräumen).
 navigator.storage?.persist?.().catch(() => {});

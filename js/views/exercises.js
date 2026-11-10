@@ -8,6 +8,7 @@ import {
   addCustomExercise,
   updateCustomExercise,
   deleteCustomExercise,
+  setExerciseNote,
   ExerciseValidationError,
 } from "../services/exerciseService.js";
 import { getProgressHistory, getRecentPerformances } from "../services/exerciseProgressService.js";
@@ -104,11 +105,20 @@ function emptyStateHtml() {
   `;
 }
 
-export function showExerciseDetail(exercise) {
+// Details einer Übung. Hier wird auch die dauerhafte Notiz gepflegt (gilt in allen Plänen und
+// Trainings). onNoteChange(text) wird bei jeder Änderung aufgerufen, damit die aufrufende
+// Ansicht ihre Anzeige aktualisieren kann.
+export function showExerciseDetail(exerciseArg, { onNoteChange = null } = {}) {
+  const exercise = loadExercises().find((e) => e.id === exerciseArg.id) ?? exerciseArg;
   openModal((sheet) => {
     sheet.innerHTML = `
       <h2>${escapeHtml(exercise.name)}</h2>
       <div class="muscle-tag">${escapeHtml(muscleGroupLabel(exercise.muscleGroup))}</div>${customBadge(exercise)}
+      <div class="detail-section note-section">
+        <h3>Meine Notiz</h3>
+        <textarea id="exercise-note" class="note-area" rows="3" placeholder="z. B. Sitzeinstellung, Griffweite, Reminder" aria-label="Notiz zur Übung">${escapeHtml(exercise.note ?? "")}</textarea>
+        <div class="list-row-sub">Wird automatisch gespeichert und bei dieser Übung im Plan und im Training angezeigt.</div>
+      </div>
       ${
         exercise.instructions
           ? `<div class="detail-section">
@@ -142,7 +152,14 @@ export function showExerciseDetail(exercise) {
       </div>`
           : ""
       }
+      <button class="btn-secondary" id="detail-close" style="width:100%; margin-top:12px;">Schließen</button>
     `;
+
+    sheet.querySelector("#detail-close").addEventListener("click", () => closeModal());
+    sheet.querySelector("#exercise-note").addEventListener("input", (event) => {
+      setExerciseNote(exercise.id, event.target.value);
+      onNoteChange?.(event.target.value.trim());
+    });
 
     if (isCustomExercise(exercise)) {
       sheet.querySelector("#edit-custom-btn").addEventListener("click", () => openExerciseForm(exercise));

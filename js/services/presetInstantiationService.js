@@ -25,7 +25,6 @@ export function instantiatePreset(preset, planName) {
         targetSets: presetExercise.numberOfSets,
         targetRepsMin: recommendation?.min ?? null,
         targetRepsMax: recommendation?.max ?? null,
-        note: "",
       };
     });
     return { id: makeId(), name: presetDay.name, order: dayIndex, planExercises };

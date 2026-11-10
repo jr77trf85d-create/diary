@@ -1,4 +1,4 @@
-import { loadExercises } from "../storage.js";
+import { loadExercises, loadSessions } from "../storage.js";
 import {
   getPlans,
   getPlan,
@@ -10,11 +10,10 @@ import {
   removeExerciseFromDay,
   updateTargetSets,
   updateTargetReps,
-  updateNote,
 } from "../services/planService.js";
 import { openModal, closeModal, confirmDialog } from "../ui/modal.js";
 import { openExercisePicker } from "./exercisePicker.js";
-import { escapeHtml, customBadge } from "./exercises.js";
+import { escapeHtml, customBadge, showExerciseDetail } from "./exercises.js";
 import { refresh } from "../router.js";
 import {
   startSession,
@@ -22,7 +21,9 @@ import {
   getUnfinishedSessionForDay,
   discardSession,
 } from "../services/sessionService.js";
-import { recommendedReps } from "../data/repRanges.js";
+import { recommendedReps, effectiveRepRange } from "../data/repRanges.js";
+import { findReference } from "../services/comparisonService.js";
+import { increaseHint } from "../services/progressionService.js";
 import { renderActiveSession } from "./activeSession.js";
 import { renderSessionSummary } from "./sessionReport.js";
 import { TRAINING_PLAN_PRESETS } from "../data/presets.js";
@@ -283,6 +284,15 @@ function renderDayDetail(container, setTitle, plan, day) {
   const exercises = loadExercises();
   const exerciseById = new Map(exercises.map((e) => [e.id, e]));
 
+  // "Gewicht steigern"-Hinweis: gleiche Regel und gleiches Vergleichstraining wie im Training selbst.
+  const allSessions = loadSessions();
+  function hintFor(pe, exercise) {
+    if (!exercise) return null;
+    const range = effectiveRepRange(pe.targetRepsMin, pe.targetRepsMax, exercise.name);
+    const reference = findReference(pe.exerciseId, { planId: plan.id, dayId: day.id, sessions: allSessions });
+    return increaseHint({ range, plannedSets: pe.targetSets }, reference);
+  }
+
   container.innerHTML = `
     <div class="form-field">
       <label>Name des Tages</label>
@@ -305,10 +315,14 @@ function renderDayDetail(container, setTitle, plan, day) {
             .map((pe) => {
               const exercise = exerciseById.get(pe.exerciseId);
               const recommendation = exercise ? recommendedReps(exercise.name) : null;
+              const userHasRange = pe.targetRepsMin != null || pe.targetRepsMax != null;
+              const note = (exercise?.note ?? "").trim();
               return `
-            <div class="card">
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                <div style="flex:1; font-weight:700;">${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}</div>
+            <div class="card" data-plan-card="${pe.id}">
+              <div style="display:flex; align-items:center; gap:4px; margin-bottom:10px;">
+                <div style="flex:1; min-width:0; font-weight:700; overflow-wrap:anywhere;">${escapeHtml(exercise?.name ?? "Unbekannte Übung")}${customBadge(exercise)}
+                  <span class="hint-badge" data-hint-badge="${pe.id}" ${hintFor(pe, exercise) ? "" : "hidden"}>💡 Steigern</span></div>
+                <button class="icon-btn" data-info-pe="${pe.id}" aria-label="Details und Notiz">ℹ️</button>
                 <button class="icon-btn danger" data-remove-pe="${pe.id}" aria-label="Übung entfernen">🗑</button>
               </div>
               <div class="plan-controls">
@@ -323,18 +337,20 @@ function renderDayDetail(container, setTitle, plan, day) {
                 <div class="plan-control" data-reps-for="${pe.id}">
                   <span class="plan-control-label">Wiederholungen</span>
                   <div class="rep-inputs">
-                    <input type="number" inputmode="numeric" min="1" class="rep-input" data-rep="min" placeholder="von" aria-label="Wiederholungen von" value="${pe.targetRepsMin ?? ""}" />
+                    <input type="number" inputmode="numeric" min="1" class="rep-input" data-rep="min" placeholder="${recommendation?.min ?? "von"}" aria-label="Wiederholungen von" value="${pe.targetRepsMin ?? ""}" />
                     <span>–</span>
-                    <input type="number" inputmode="numeric" min="1" class="rep-input" data-rep="max" placeholder="bis" aria-label="Wiederholungen bis" value="${pe.targetRepsMax ?? ""}" />
+                    <input type="number" inputmode="numeric" min="1" class="rep-input" data-rep="max" placeholder="${recommendation?.max ?? "bis"}" aria-label="Wiederholungen bis" value="${pe.targetRepsMax ?? ""}" />
                   </div>
                 </div>
               </div>
               ${
                 recommendation
-                  ? `<div class="list-row-sub" style="margin:6px 0 8px;">Empfehlung: ${escapeHtml(recommendation.text)}</div>`
+                  ? `<div class="list-row-sub" style="margin:6px 0 0;" data-reps-hint="${pe.id}">${
+                      userHasRange ? "Empfehlung" : "Es gilt die Empfehlung"
+                    }: ${escapeHtml(recommendation.text)}</div>`
                   : ""
               }
-              <input type="text" class="note-input" data-note-for="${pe.id}" placeholder="Notiz (z. B. Sitzeinstellung, Reminder)" aria-label="Notiz" value="${escapeAttrValue(pe.note ?? "")}" />
+              <div class="pe-note" data-plan-note="${pe.id}" ${note ? "" : "hidden"}>📝 <span>${escapeHtml(note)}</span></div>
             </div>
           `;
             })
@@ -379,18 +395,40 @@ function renderDayDetail(container, setTitle, plan, day) {
     });
   });
 
-  // Wiederholungsziel und Notiz werden bei jeder Eingabe gespeichert (ohne Neuaufbau der Ansicht,
-  // damit Tastatur und Cursor erhalten bleiben).
+  // Das Wiederholungsziel wird bei jeder Eingabe gespeichert (ohne Neuaufbau der Ansicht, damit
+  // Tastatur und Cursor erhalten bleiben). Der Steigern-Hinweis hängt von der Spanne ab und wird
+  // dabei mitgeführt.
   container.querySelectorAll("[data-reps-for]").forEach((group) => {
     const peId = group.dataset.repsFor;
     const [minInput, maxInput] = group.querySelectorAll(".rep-input");
-    const save = () => updateTargetReps(plan.id, day.id, peId, minInput.value, maxInput.value);
+    const save = () => {
+      updateTargetReps(plan.id, day.id, peId, minInput.value, maxInput.value);
+      const updated = getPlan(plan.id)?.days.find((d) => d.id === day.id)?.planExercises.find((p) => p.id === peId);
+      const exercise = exerciseById.get(updated?.exerciseId);
+      const badge = container.querySelector(`[data-hint-badge="${peId}"]`);
+      if (updated && badge) badge.hidden = !hintFor(updated, exercise);
+      const userHasRange = updated && (updated.targetRepsMin != null || updated.targetRepsMax != null);
+      const hint = container.querySelector(`[data-reps-hint="${peId}"]`);
+      if (hint) hint.textContent = hint.textContent.replace(/^[^:]+/, userHasRange ? "Empfehlung" : "Es gilt die Empfehlung");
+    };
     minInput.addEventListener("input", save);
     maxInput.addEventListener("input", save);
   });
 
-  container.querySelectorAll("[data-note-for]").forEach((input) => {
-    input.addEventListener("input", () => updateNote(plan.id, day.id, input.dataset.noteFor, input.value));
+  // Notiz wird in den Details der Übung gepflegt (hier nur Anzeige).
+  container.querySelectorAll("[data-info-pe]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const pe = day.planExercises.find((p) => p.id === btn.dataset.infoPe);
+      const exercise = exerciseById.get(pe?.exerciseId);
+      if (!exercise) return;
+      showExerciseDetail(exercise, {
+        onNoteChange: (text) => {
+          const noteEl = container.querySelector(`[data-plan-note="${pe.id}"]`);
+          noteEl.querySelector("span").textContent = text;
+          noteEl.hidden = text === "";
+        },
+      });
+    });
   });
 
   container.querySelectorAll("[data-remove-pe]").forEach((btn) => {
@@ -515,10 +553,6 @@ function ratingBarHtml(label, value) {
       <span style="color:var(--color-accent); letter-spacing:2px;">${dots}</span>
     </div>
   `;
-}
-
-function escapeAttrValue(str) {
-  return escapeHtml(str).replace(/"/g, "&quot;");
 }
 
 function formatStarted(isoString) {

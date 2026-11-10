@@ -63,7 +63,6 @@ export function addExerciseToDay(planId, dayId, exerciseId) {
     targetSets: 3,
     targetRepsMin: recommendation?.min ?? null,
     targetRepsMax: recommendation?.max ?? null,
-    note: "",
   });
   savePlans(plans);
 }
@@ -106,16 +105,6 @@ export function updateTargetReps(planId, dayId, planExerciseId, min, max) {
   if (lo !== null && hi !== null && lo > hi) [lo, hi] = [hi, lo];
   planExercise.targetRepsMin = lo;
   planExercise.targetRepsMax = hi;
-  savePlans(plans);
-}
-
-// Freie Notiz je Übung und Trainingstag (z. B. Sitzeinstellung, Reminder).
-export function updateNote(planId, dayId, planExerciseId, note) {
-  const plans = loadPlans();
-  const day = findDay(plans, planId, dayId);
-  const planExercise = day?.planExercises.find((pe) => pe.id === planExerciseId);
-  if (!planExercise) return;
-  planExercise.note = String(note ?? "");
   savePlans(plans);
 }
 

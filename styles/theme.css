@@ -300,17 +300,77 @@ button {
   z-index: 100;
 }
 
-.modal-sheet {
+/* Fenster: Rahmen (.modal-frame) mit festem Kopf (Griff + Schließen) und scrollendem Inhalt
+   (.modal-sheet). Prozentangaben beziehen sich auf das Overlay, das bei geöffneter Tastatur auf
+   den sichtbaren Bereich verkleinert wird (siehe ui/modal.js). */
+.modal-frame {
   width: 100%;
   max-width: 480px;
-  /* Prozent bezieht sich auf das Overlay, das bei geöffneter Tastatur auf den sichtbaren
-     Bereich verkleinert wird (siehe ui/modal.js). */
   max-height: 92%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: var(--space-lg) var(--space-md) calc(var(--space-lg) + env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+}
+
+.modal-frame--tall {
+  height: 92%;
+}
+
+.modal-grab {
+  position: relative;
+  flex-shrink: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none; /* Wischgeste statt Seitenscrollen */
+}
+
+.modal-grab-bar {
+  width: 42px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-divider);
+}
+
+.modal-close {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.modal-close:active {
+  color: var(--color-text-primary);
+}
+
+.modal-sheet {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 var(--space-md) calc(var(--space-lg) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Auswahllisten und Formulare: Titel/Suche/Buttons bleiben stehen, nur .sheet-scroll scrollt */
+.modal-sheet--flex {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-sheet--flex > * {
+  flex-shrink: 0;
 }
 
 .modal-sheet h2 {
@@ -615,16 +675,7 @@ button {
 }
 
 /* ---------- Auswahlfenster (Übung / Alternative) ---------- */
-.modal-sheet--tall {
-  height: 92%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
 
-.modal-sheet--tall > * {
-  flex-shrink: 0;
-}
 
 .sheet-scroll {
   flex: 1 1 auto !important;
@@ -1122,22 +1173,12 @@ button:disabled {
   .balance-n { font-size: 19px; }
   .session-date { width: 46px; }
   .plan-controls { gap: 10px; }
+  .set-last { padding-left: 50px; }
 }
 
-.modal-sheet--split {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
 
-.modal-sheet--split > * {
-  flex-shrink: 0;
-}
 
 /* Scrollbereich im Fenster: ein wenig Luft rechts, damit Eingabefelder nicht am Rand kleben */
-.modal-sheet--split .sheet-scroll {
-  padding-bottom: 4px;
-}
 
 /* Einklapp-Pfeil als gezeichnete Form (zuverlässiger als ein Textzeichen) */
 .card-chevron {
@@ -1153,4 +1194,102 @@ button:disabled {
 .card-chevron.open {
   transform: rotate(45deg);
   border-color: var(--color-accent);
+}
+
+/* ---------- Training: Satz-Vergleich, Hinweise, Notiz ---------- */
+.set-block {
+  margin-bottom: 10px;
+}
+
+.set-block .set-row {
+  margin-bottom: 2px;
+}
+
+/* "Letztes Mal" direkt unter dem jeweiligen Satz, bündig mit den Eingabefeldern */
+.set-last {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;
+  margin: 0;
+  padding: 2px 0 2px 58px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.set-last:disabled {
+  opacity: 0.7;
+}
+
+.set-last.equal,
+.set-last.better {
+  color: var(--color-accent);
+}
+
+.set-last-arrow {
+  font-weight: 800;
+}
+
+.hint {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 176, 74, 0.14);
+  color: var(--color-warn);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.hint.done {
+  background: rgba(198, 255, 61, 0.14);
+  color: var(--color-accent);
+}
+
+.hint-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 176, 74, 0.16);
+  color: var(--color-warn);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.note-area {
+  width: 100%;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  resize: vertical;
+}
+
+.note-area::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.pe-note {
+  overflow-wrap: anywhere;
+}
+
+/* Das hidden-Attribut muss auch bei Elementen gelten, deren Klasse ein display setzt */
+[hidden] {
+  display: none !important;
+}
+
+/* Notiz im Plan: ohne Einrückung (die Einrückung ist für die Kopfzeile im Training gedacht) */
+[data-plan-note] {
+  margin-left: 0;
 }

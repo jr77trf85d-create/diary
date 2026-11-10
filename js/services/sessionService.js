@@ -27,10 +27,11 @@ export function startSession(planId, dayId) {
         planExerciseId: pe.id,
         exerciseId: pe.exerciseId,
         order: i,
-        // Ziel und Notiz werden beim Start übernommen, damit sie im Training sichtbar sind.
+        // Ziel und geplante Satzanzahl werden beim Start festgehalten (Vergleich und Hinweise
+        // sollen sich nicht verändern, wenn man im Training Sätze hinzufügt).
         targetRepsMin: pe.targetRepsMin ?? null,
         targetRepsMax: pe.targetRepsMax ?? null,
-        note: pe.note ?? "",
+        targetSets: pe.targetSets,
         adHoc: false,
         sets: emptySets(pe.targetSets),
       })),
@@ -141,7 +142,7 @@ export function addAdHocExercise(sessionId, exerciseId) {
     order: session.performedExercises.reduce((max, p) => Math.max(max, p.order), -1) + 1,
     targetRepsMin: null,
     targetRepsMax: null,
-    note: "",
+    targetSets: DEFAULT_AD_HOC_SETS,
     adHoc: true,
     sets: emptySets(DEFAULT_AD_HOC_SETS),
   };

@@ -86,3 +86,57 @@ export function deleteCustomExercise(exerciseId) {
   savePlans(plans);
   return true;
 }
+
+// Dauerhafte Notiz zu einer Übung (z. B. Sitzeinstellung), gilt in allen Plänen und Trainings.
+// Funktioniert für Standard- und eigene Übungen.
+export function setExerciseNote(exerciseId, note) {
+  const exercises = loadExercises();
+  const exercise = exercises.find((e) => e.id === exerciseId);
+  if (!exercise) return false;
+  exercise.note = String(note ?? "");
+  saveExercises(exercises);
+  return true;
+}
+
+export function getExerciseNote(exercise) {
+  return (exercise?.note ?? "").trim();
+}
+
+// Früher gab es Notizen je Übung und Trainingstag im Plan. Es gibt jetzt nur noch eine Notiz je
+// Übung: bestehende Plan-Notizen werden in die Übung übernommen (verschiedene Notizen derselben
+// Übung werden mit " · " verbunden) und aus dem Plan entfernt. Läuft bei jedem Start und ist
+// wiederholbar, ohne Notizen zu verdoppeln.
+export function migratePlanNotesToExercises() {
+  const plans = loadPlans();
+  const exercises = loadExercises();
+  const byId = new Map(exercises.map((e) => [e.id, e]));
+  let changed = false;
+
+  for (const plan of plans) {
+    for (const day of plan.days) {
+      for (const pe of day.planExercises) {
+        const legacy = (pe.note ?? "").trim();
+        if (!legacy) {
+          if ("note" in pe) {
+            delete pe.note;
+            changed = true;
+          }
+          continue;
+        }
+        const exercise = byId.get(pe.exerciseId);
+        if (!exercise) continue;
+        const current = (exercise.note ?? "").trim();
+        if (!current) exercise.note = legacy;
+        else if (!current.includes(legacy)) exercise.note = `${current} · ${legacy}`;
+        delete pe.note;
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    saveExercises(exercises);
+    savePlans(plans);
+  }
+  return changed;
+}

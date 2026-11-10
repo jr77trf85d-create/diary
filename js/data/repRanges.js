@@ -126,3 +126,17 @@ export function formatRepTarget(min, max) {
   if (max == null || min === max) return String(min);
   return `${min}–${max}`;
 }
+
+// Anzuzeigende Wiederholungsspanne einer Übung: zuerst die eigene Eintragung (Plan), sonst die
+// Empfehlung der Standardübung. Eigene Übungen ohne Eintrag haben keine Spanne (null).
+// -> { min, max, source: "user" | "default" } oder null
+export function effectiveRepRange(userMin, userMax, exerciseName) {
+  if (userMin != null || userMax != null) {
+    return { min: userMin ?? null, max: userMax ?? null, source: "user" };
+  }
+  const recommended = recommendedReps(exerciseName);
+  if (recommended && (recommended.min != null || recommended.max != null)) {
+    return { min: recommended.min, max: recommended.max, source: "default" };
+  }
+  return null;
+}
